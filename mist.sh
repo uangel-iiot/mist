@@ -12,7 +12,6 @@ Report bugs to: https://github.com/hydrospheredata/mist/issues
 Up home page: http://hydrosphere.io
 EOF
 
-
 if [ "$1" == "--help" ] || [ "$1" == "-h" ] || [ "$2" == "--help" ] || [ "$2" == "-h" ]
 then
     echo "${help}"
@@ -33,6 +32,21 @@ do
     key="$1"
 
   case ${key} in
+    --runner)
+      RUNNER="$2"
+      shift
+      ;;
+
+    --host)
+      HOST="$2"
+      shift
+      ;;
+
+    --port)
+      PORT="$2"
+      shift
+      ;;
+
     --namespace)
       NAMESPACE="$2"
       shift
@@ -57,22 +71,39 @@ then
     echo "${help}"
     exit 1
 fi
-
 if [ "${app}" == 'worker' ]
 then
-    if [ "${NAMESPACE}" == '' ]
+    if [ "${RUNNER}" == 'local' ]
     then
-        echo "You must specify --namespace to run Mist worker"
-        exit 3
+        if [ "${NAMESPACE}" == '' ]
+        then
+            echo "You must specify --namespace to run Mist worker"
+            exit 3
+        fi
+        ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Worker --driver-java-options "-Dconfig.file=${CONFIG_FILE}" "$JAR_FILE" ${NAMESPACE}
+    elif [[ "${RUNNER}" == 'docker' ]]
+    then
+        # docker -H 172.17.0.1:4000 run -d --link mosquitto-$SPARK_VERSION:mosquitto hydrosphere/mist:master-$SPARK_VERSION worker ${NAMESPACE}
+        export parentContainer=`curl -X GET -H "Content-Type: application/json" http://${HOST}:${PORT}/containers/$HOSTNAME/json`
+        export image=`echo $parentContainer | jq -r '.Config.Image'`
+        export links=`echo $parentContainer | jq -r '.HostConfig.Links'`
+        export labels=`echo $parentContainer | jq -r '.Config.Labels'`
+        export request="{
+          \"Image\":\"$image\",
+          \"Cmd\": [
+            \"worker\",
+            \"${NAMESPACE}\"
+          ],
+          \"Labels\": $labels,
+          \"HostConfig\": {
+            \"Links\": $links
+          }
+        }"
+        export containerId=`curl -X POST -H "Content-Type: application/json" http://${HOST}:${PORT}/containers/create -d "$request" | jq -r '.Id'`
+        curl -X POST -H "Content-Type: application/json" http://${HOST}:${PORT}/containers/$containerId/start
     fi
-    ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Worker --driver-java-options "-Dconfig.file=${CONFIG_FILE}" "$JAR_FILE" ${NAMESPACE}
-    exit 0
-fi
-
-if [ "${app}" == 'master' ]
+elif [ "${app}" == 'master' ]
 then
     PID_FILE="${MIST_HOME}/master.pid"
-    ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Master --driver-java-options "-Dconfig.file=${CONFIG_FILE}" "$JAR_FILE" &
-    echo $! > ${PID_FILE}
-    exit 0
+    ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Master --driver-java-options "-Dconfig.file=${CONFIG_FILE}" "$JAR_FILE"
 fi

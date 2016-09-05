@@ -13,7 +13,7 @@ script:
   - docker run --link mosquitto-$SPARK_VERSION:mosquitto hydrosphere/mist:$TRAVIS_BRANCH-$SPARK_VERSION tests
 
 after_success:
-  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+  - if [ "$TRAVIS_BRANCH" == "master" ] || [ "$TRAVIS_BRANCH" == "runners" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
     docker push hydrosphere/mist:$TRAVIS_BRANCH-$SPARK_VERSION;
     fi

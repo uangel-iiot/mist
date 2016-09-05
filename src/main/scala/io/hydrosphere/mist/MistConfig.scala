@@ -53,6 +53,19 @@ private[mist] object MistConfig {
     lazy val port: Int = http.getInt("port")
   }
 
+  /** Workers specific settings */
+  object Workers {
+    private val workers = config.getConfig("mist.workers")
+
+    /** Run workers (local,docker) */
+    val run: String = workers.getString("run")
+
+    /** Runner server host */
+    lazy val host: String = workers.getString("host")
+    /** Runner server port */
+    lazy val port: Int = workers.getInt("port")
+  }
+
   /** Settings for each spark context */
   object Spark {
     private val spark = config.getConfig("mist.spark")

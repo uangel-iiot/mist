@@ -27,9 +27,15 @@ private[mist] class WorkerManager extends Actor with Logger{
     if (!workers.contains(name)) {
       new Thread {
         override def run() = {
-          val configFile = System.getProperty("config.file")
-          val jarPath = new File(getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
-          s"${sys.env("MIST_HOME")}/mist.sh worker --namespace $name --config $configFile --jar $jarPath" !
+          if (MistConfig.Workers.run == "local") {
+            val configFile = System.getProperty("config.file")
+            val jarPath = new File(getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
+            s"${sys.env("MIST_HOME")}/mist.sh worker --runner local --namespace $name --config $configFile --jar $jarPath" !
+          } else if (MistConfig.Workers.run == "docker") {
+            val configFile = System.getProperty("config.file")
+            val jarPath = new File(getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
+            s"${sys.env("MIST_HOME")}/mist.sh worker --runner docker --host ${MistConfig.Workers.host} --port ${MistConfig.Workers.port}  --namespace $name --config $configFile --jar $jarPath" !
+          }
         }
       }.start()
     }
