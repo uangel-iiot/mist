@@ -505,7 +505,7 @@ class IntegrationTests extends FunSuite with Eventually with BeforeAndAfterAll w
 */
   override def afterAll(): Unit ={
 
-    """"ps -aef | grep "mist" | awk '{print $2}' | xargs kill -9""""!
+    "./killmist.sh" !
 
     TestKit.shutdownActorSystem(system)
     //TestKit.shutdownActorSystem(testSystem)
