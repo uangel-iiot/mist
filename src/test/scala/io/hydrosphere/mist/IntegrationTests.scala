@@ -505,8 +505,7 @@ class IntegrationTests extends FunSuite with Eventually with BeforeAndAfterAll w
 */
   override def afterAll(): Unit ={
 
-    val pid = Source.fromFile("master.pid").getLines.mkString
-    s"kill ${pid}"!
+    """"ps -aef | grep "mist" | awk '{print $2}' | xargs kill -9""""!
 
     TestKit.shutdownActorSystem(system)
     //TestKit.shutdownActorSystem(testSystem)
