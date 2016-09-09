@@ -85,8 +85,10 @@ then
     then
         # docker -H 172.17.0.1:4000 run -d --link mosquitto-$SPARK_VERSION:mosquitto hydrosphere/mist:master-$SPARK_VERSION worker ${NAMESPACE}
         export parentContainer=`curl -X GET -H "Content-Type: application/json" http://${HOST}:${PORT}/containers/$HOSTNAME/json`
-        export image=`echo $parentContainer | jq -r '.Config.Image'`
-        export links=`echo $parentContainer | jq -r '.HostConfig.Links'`
+        export name=`echo $parentContainer | jq -r '.Name'`
+	export image=`echo $parentContainer | jq -r '.Config.Image'`
+        #export links=`echo $parentContainer | jq -r '.HostConfig.Links'`
+	export links="[\\$name:\\master]"
         export labels=`echo $parentContainer | jq -r '.Config.Labels'`
         export request="{
           \"Image\":\"$image\",
