@@ -88,8 +88,8 @@ then
         export name=`echo $parentContainer | jq -r '.Name'`
 	export image=`echo $parentContainer | jq -r '.Config.Image'`
         #export links=`echo $parentContainer | jq -r '.HostConfig.Links'`
-	export links="[\\$name:\\master]"
-        export labels=`echo $parentContainer | jq -r '.Config.Labels'`
+	export links="[\"$name:/master\"]"
+	export labels=`echo $parentContainer | jq -r '.Config.Labels'`
         export request="{
           \"Image\":\"$image\",
           \"Cmd\": [
