@@ -5,7 +5,6 @@ node
   try {
     stage 'clone projet'
       checkout scm
-      echo ${env}
 
     stage 'build and test'
       parallel ( failFast: false,
