@@ -10,7 +10,7 @@ node
       parallel ( failFast: false,
           Spark_1_5_2: { test_mist("1.5.2") },
           Spark_1_6_2: { test_mist("1.6.2") },
-          Spark_2_0_0: { test_mist("2.0.0") }
+          Spark_2_0_0: { test_mist("2.0.0") },
       )
   }
   catch (err) {
@@ -19,6 +19,7 @@ node
 
     mail body: "project build error is here: ${env.BUILD_URL}" ,
         from: 'hydro-support@provectus.com',
+        replyTo: 'noreply@provectus.com',
         subject: 'project build failed',
         to: "${env.GIT_AUTHOR_EMAIL}"
 
