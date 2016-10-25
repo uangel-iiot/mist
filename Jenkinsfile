@@ -5,6 +5,7 @@ node
   try {
     stage 'clone projet'
       checkout scm
+      echo ${env}
 
     stage 'build and test'
       parallel ( failFast: false,
@@ -21,7 +22,7 @@ node
         from: 'hydro-support@provectus.com',
         replyTo: 'noreply@provectus.com',
         subject: 'project build failed',
-        to: "${env.GIT_AUTHOR_EMAIL}"
+        to: "${env.GIT_COMMITTER_EMAIL}"
 
     throw err
   }
