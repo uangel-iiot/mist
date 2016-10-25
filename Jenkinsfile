@@ -20,16 +20,19 @@ node
     mail body: "project build error is here: ${env.BUILD_URL}" ,
         from: 'hydro-support@provectus.com',
         subject: 'project build failed',
-        to: '${env.GIT_AUTHOR_EMAIL}'
+        to: :"${env.GIT_AUTHOR_EMAIL}"
 
     throw err
   }
 }
 
-
 def test_mist(sparkVersion)
 {
-  echo 'build ' + sparkVersion
-  echo 'prepare ' + sparkVersion
-  echo 'test ' + sparkVersion
+  echo 'prepare for Mist with Spark version - ' + sparkVersion  
+  def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").withRun("-v /usr/share/mist")
+  def mosquittoId = docker.image('ansi/mosquitto:latest').id
+  def hdfsId = docker.image('hydrosphere/hdfs:latest').withRun("--volumes-from ${mistVolume}", "start").id
+
+  echo 'test Mist with Spark version - ' + sparkVersion
+  docker.image("hydrosphere/mist:tests-${sparkVersion}").withRun("-l ${mosquittoId}:mosquitto -l ${hdfsId}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests")
 }
