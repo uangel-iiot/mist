@@ -20,7 +20,7 @@ node
     mail body: "project build error is here: ${env.BUILD_URL}" ,
         from: 'hydro-support@provectus.com',
         subject: 'project build failed',
-        to: :"${env.GIT_AUTHOR_EMAIL}"
+        to: "${env.GIT_AUTHOR_EMAIL}"
 
     throw err
   }
