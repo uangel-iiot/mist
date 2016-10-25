@@ -22,7 +22,7 @@ node
         replyTo: 'noreply@provectus.com',
         subject: 'project build failed',
         to: "${env.GIT_COMMITTER_EMAIL}"
-
+    echo "${err}"
     throw err
   }
 }
