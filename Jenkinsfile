@@ -16,13 +16,12 @@ node
   catch (err) {
 
     currentBuild.result = "FAILURE"
-
+    echo "${err}"
     mail body: "project build error is here: ${env.BUILD_URL}" ,
         from: 'hydro-support@provectus.com',
         replyTo: 'noreply@provectus.com',
         subject: 'project build failed',
-        to: "${env.GIT_COMMITTER_EMAIL}"
-    echo "${err}"
+        to: "peanig@gmail.com"
     throw err
   }
 }
