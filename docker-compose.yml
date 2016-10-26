@@ -1,0 +1,25 @@
+version: '2'
+services:
+  mist-hdfs:
+    image: hydrosphere/mist:tests-$SPARK_VERSION
+    container_name: mist-hdfs-$SPARK_VERSION
+    volumes:
+      - /usr/share/mist
+  mosquitto:
+    container_name: mosquitto-$SPARK_VERSION
+    image: ansi/mosquitto
+  hdfs:
+    image: hydrosphere/hdfs
+    container_name: hdfs-$SPARK_VERSION
+    command: start
+    volumes_from: 
+      - mist-hdfs
+  mist:
+    image: hydrosphere/mist:tests-$SPARK_VERSION 
+    container_name: mist-$SPARK_VERSION
+    links:
+      - mosquitto:mosquitto
+      - hdfs:hdfs
+    depends_on:
+      - hdfs
+      - mosquitto
