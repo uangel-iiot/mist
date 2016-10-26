@@ -29,5 +29,16 @@ node
 def test_mist(sparkVersion)
 {
   echo 'prepare for Mist with Spark version - ' + sparkVersion  
-  def mosquittoId = docker.image('ansi/mosquitto:latest').id
+  sh "export mistVolume=`docker create -v /usr/share/mist hydrosphere/mist:tests-${sparkVersion}`"
+  sh "export mosquittoId=`docker run -d ansi/mosquitto`"
+  sh "export hdfsId=`docker run --volumes-from ${mistVolume} -d hydrosphere/hdfs start`"
+  
+  echo 'test Mist with Spark version - ' + sparkVersion
+  sh "export mistId=`docker run --link ${mosquittoId}:mosquitto --link ${hdfsId}:hdfs -v ${PWD}:/usr/share/mist hydrosphere/mist:tests-${sparkVersion} tests`"
+  
+  echo 'remove containers'
+  sh "docker rm -f ${mosquittoId}"
+  sh "docker rm -f ${hdfsId}"
+  sh "docker rm -f ${mistId}"
+  sh "docker rm -f ${mistVolume}"
 }
