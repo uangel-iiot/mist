@@ -2,7 +2,7 @@ node
 {
   currentBuild.result = "SUCCESS"
   
-  stage 'clone projet'
+  stage 'clone projet(test1)'
     checkout scm
 
   try {
