@@ -2,7 +2,7 @@ node
 {
     stage 'clone projet'
     checkout scm
-    stage 'build and test1'
+    stage 'build and test2'
     parallel ( failFast: false,
         Spark_1_5_2: { test_platform("1.5.2") },
         Spark_1_6_2: { test_platform("1.6.2") },
