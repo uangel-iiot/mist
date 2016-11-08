@@ -3,7 +3,7 @@ node
   currentBuild.result = "SUCCESS"
   
   stage 'clone projet(test4)'
-    checkout (sh 'git clean -fdx')
+    checkout scm
   try {
     stage 'build and test'
       parallel ( failFast: false,
