@@ -36,9 +36,9 @@ def test_mist(sparkVersion)
     sh "docker logs -f ${mistId}"
 
     echo 'remove containers'
-    docker.rm(mosquittoId)
-    docker.rm(mistVolume)
-    docker.rm(hdfsId)
-    docker.rm(mistId)
+    mosquittoId.stop()
+    mistVolume.stop()
+    hdfsId.stop()
+    mistId.stop()
   }
 }
