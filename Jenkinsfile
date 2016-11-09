@@ -33,7 +33,7 @@ def test_mist(sparkVersion)
 
     echo 'test Mist with Spark version - ' + sparkVersion
     def mist = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquitto.id}:mosquitto --link ${hdfs.id}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests")
-    sh "docker logs -f ${mistId}"
+    sh "docker logs -f ${mist.id}"
 
     echo 'remove containers'
     mosquitto.stop()
