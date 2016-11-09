@@ -5,9 +5,11 @@ node {
       checkout scm
     }
     stage('build and test') {
-      test_mist("1.5.2")
-      test_mist("1.6.2")
-      test_mist("2.0.0")
+      parallel ( failFast: false,
+        Spark_1_5_2: { test_mist("1.5.2") },
+        Spark_1_6_2: { test_mist("1.6.2") },
+        Spark_2_0_0: { test_mist("2.0.0") },
+      )
     }
   }
   catch (err) {
