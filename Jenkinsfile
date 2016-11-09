@@ -27,18 +27,18 @@ def test_mist(sparkVersion)
 {
   wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
     echo 'prepare for Mist with Spark version - ' + sparkVersion  
-    def mosquittoId = docker.image('ansi/mosquitto:latest').run().id
-    def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist").id
-    def hdfsId = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start").id
+    def mosquitto = docker.image('ansi/mosquitto:latest').run()
+    def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist")
+    def hdfs = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start")
 
     echo 'test Mist with Spark version - ' + sparkVersion
-    def mistId = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquittoId}:mosquitto --link ${hdfsId}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests").id
+    def mist = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquittoId.id}:mosquitto --link ${hdfsId.id}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests")
     sh "docker logs -f ${mistId}"
 
     echo 'remove containers'
-    mosquittoId.stop()
+    mosquitto.stop()
     mistVolume.stop()
-    hdfsId.stop()
-    mistId.stop()
+    hdfs.stop()
+    mist.stop()
   }
 }
