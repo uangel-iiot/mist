@@ -27,9 +27,9 @@ def test_mist(sparkVersion)
 {
   wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
     echo 'prepare for Mist with Spark version - ' + sparkVersion  
-    def mosquittoId = docker.image('ansi/mosquitto:latest').run().imageName
-    def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist").imageName
-    def hdfsId = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start").imageName
+    def mosquittoId = docker.image('ansi/mosquitto:latest').run().imageName()
+    def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist").imageName()
+    def hdfsId = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start").imageName()
 
     echo "mos - " + mosquittoId
     echo "mist - " + mistVolume
