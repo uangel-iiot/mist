@@ -29,7 +29,7 @@ def test_mist(sparkVersion)
     echo 'prepare for Mist with Spark version - ' + sparkVersion  
     def mosquitto = docker.image('ansi/mosquitto:latest').run()
     def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist")
-    def hdfs = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start")
+    def hdfs = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume.id}", "start")
 
     echo 'test Mist with Spark version - ' + sparkVersion
     def mist = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquittoId.id}:mosquitto --link ${hdfsId.id}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests")
