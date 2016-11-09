@@ -27,21 +27,18 @@ def test_mist(sparkVersion)
 {
   wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
     echo 'prepare for Mist with Spark version - ' + sparkVersion  
-    def mosquittoId = docker.image('ansi/mosquitto:latest').run().parsedId
-    def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist").parsedId
-    def hdfsId = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start").parsedId
+    def mosquittoId = docker.image('ansi/mosquitto:latest').run().id
+    def mistVolume = docker.image("hydrosphere/mist:tests-${sparkVersion}").run("-v /usr/share/mist").id
+    def hdfsId = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume}", "start").id
 
-    echo "mos - " + mosquittoId
-    echo "mist - " + mistVolume
-    echo "hdfs - " + hdfsId
     echo 'test Mist with Spark version - ' + sparkVersion
-    //def mistId = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" -l ${mosquittoId}:mosquitto -l ${hdfsId}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests").id
-    //sh "docker logs -f ${mistId}"
+    def mistId = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquittoId}:mosquitto --link ${hdfsId}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests").id
+    sh "docker logs -f ${mistId}"
 
     echo 'remove containers'
     docker.rm(mosquittoId)
     docker.rm(mistVolume)
     docker.rm(hdfsId)
-    //docker.rm(mistId)
+    docker.rm(mistId)
   }
 }
