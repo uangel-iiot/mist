@@ -34,13 +34,13 @@ def test_mist(sparkVersion)
     def hdfs = docker.image('hydrosphere/hdfs:latest').run("--volumes-from ${mistVolume.id}", "start")
 
     echo 'Testing Mist with Spark version: ' + sparkVersion
-    def mist = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquitto.id}:mosquitto --link ${hdfs.id}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests")
+    def mist = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquitto.id}:mosquitto --link ${hdfs.id}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "echo test && exit 1")
     sh "docker logs -f ${mist.id}"
 
     echo 'remove containers'
     mosquitto.stop()
     mistVolume.stop()
     hdfs.stop()
-    mist.stop()
+    //mist.stop()
   }
 }
