@@ -36,16 +36,16 @@ def test_mist(sparkVersion)
     
     if ( env.BRANCH_NAME == 'master' ) {
       docker.withRegistry('https://index.docker.io/v1/', '2276974e-852b-45ab-bf14-9136e1b31217') {
-        echo 'Build Mist with Spark version: ' + sparkVersion
+        echo 'Building Mist with Spark version: ' + sparkVersion
         def mistImg = docker.build("hydrosphere/mist:${env.BRANCH_NAME}-${sparkVersion}", "--build-arg SPARK_VERSION=${sparkVersion} .")
-        echo 'Test Mist with Spark version: ' + sparkVersion
+        echo 'Testing Mist with Spark version: ' + sparkVersion
         def mist = docker.image("hydrosphere/mist:${env.BRANCH_NAME}-${sparkVersion}").run(" --link ${mosquitto.id}:mosquitto --link ${hdfs.id}:hdfs", "tests")
         sh "docker logs -f ${mist.id}"
-        echo 'Push Mist with Spark version: ' + sparkVersion
+        echo 'Pushing Mist with Spark version: ' + sparkVersion
         mistImg.push()
       }
     } else {
-      echo 'Test Mist with Spark version: ' + sparkVersion
+      echo 'Testing Mist with Spark version: ' + sparkVersion
       def mist = docker.image("hydrosphere/mist:tests-${sparkVersion}").run(" --link ${mosquitto.id}:mosquitto --link ${hdfs.id}:hdfs -v ${env.WORKSPACE}:/usr/share/mist", "tests")
       sh "docker logs -f ${mist.id}"     
     }
