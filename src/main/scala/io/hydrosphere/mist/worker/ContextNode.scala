@@ -14,6 +14,10 @@ import io.hydrosphere.mist.{Constants, MistConfig}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Random, Success}
 
+
+import scala.concurrent.ExecutionContext.Implicits.global
+
+
 class ContextNode(namespace: String) extends Actor with ActorLogging{
 
   val executionContext = ExecutionContext.fromExecutorService(newFixedThreadPool(MistConfig.Settings.threadNumber))
@@ -71,12 +75,17 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
     case MemberExited(member) =>
       if (member.address == cluster.selfAddress) {
-        cluster.system.shutdown()
+        //cluster.system.shutdown()
       }
 
     case MemberRemoved(member, prevStatus) =>
       if (member.address == cluster.selfAddress) {
-        sys.exit(0)
+        val future = cluster.system.terminate()
+        future.onSuccess {
+          case terminated =>
+            sys.exit(0)
+        }
+
       }
   }
 }
