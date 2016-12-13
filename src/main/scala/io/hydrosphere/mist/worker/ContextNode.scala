@@ -7,7 +7,7 @@ import io.hydrosphere.mist.Messages._
 import io.hydrosphere.mist.contexts.ContextBuilder
 import io.hydrosphere.mist.jobs.FullJobConfiguration
 import akka.cluster.Cluster
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, Props, RootActorPath}
 import io.hydrosphere.mist.jobs.runners.Runner
 import io.hydrosphere.mist.{Constants, MistConfig}
 
@@ -28,7 +28,6 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
   lazy val contextWrapper = ContextBuilder.namedSparkContext(namespace)
 
   override def preStart(): Unit = {
-    serverActor ! WorkerDidStart(namespace, cluster.selfAddress.toString)
     cluster.subscribe(self, InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
   }
 
@@ -62,6 +61,13 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
           case Success(result: Either[Map[String, Any], String]) => originalSender ! result
           case Failure(error: Throwable) => originalSender ! Right(error.toString)
         }(ExecutionContext.global)
+
+    case MemberUp(member) =>
+      if ( member.hasRole(Constants.Actors.workerManagerName)) {
+        //if ( member.address.host.getOrElse("Master") == cluster.selfAddress.host.getOrElse("Self") ) {
+          context.actorSelection(RootActorPath(member.address) / "user" / Constants.Actors.workerManagerName) ! WorkerDidStart(namespace, cluster.selfAddress.toString)
+        //}
+      }
 
     case MemberExited(member) =>
       if (member.address == cluster.selfAddress) {

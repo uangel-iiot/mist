@@ -3,7 +3,7 @@ package io.hydrosphere.mist.master
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, AddressFromURIString}
+import akka.actor.{Actor, AddressFromURIString, Terminated}
 import akka.pattern.ask
 import akka.cluster.Cluster
 import io.hydrosphere.mist.{Logger, MistConfig, Worker}
@@ -83,6 +83,15 @@ private[mist] class WorkerManager extends Actor with Logger{
       cluster.leave(AddressFromURIString(address))
     }
   }
+  def removeLocalWorker(): Unit = {
+    workers.foreach{
+      case WorkerLink(name, address) =>
+        if(address.contains(cluster.selfAddress.host.getOrElse("DummyForNotEqual"))) {
+          logger.info(s"cluster.leave for address $name $address")
+          cluster.leave(AddressFromURIString(address))
+        }
+    }
+  }
 
   override def receive: Receive = {
     case CreateContext(name) =>
@@ -90,10 +99,7 @@ private[mist] class WorkerManager extends Actor with Logger{
 
     // surprise: stops all contexts
     case StopAllContexts =>
-      workers.foreach {
-        case WorkerLink(name, address) =>
-          removeWorkerByName(name)
-      }
+      removeLocalWorker()
 
     // removes context
     case RemoveContext(name) =>
@@ -101,7 +107,14 @@ private[mist] class WorkerManager extends Actor with Logger{
 
     case WorkerDidStart(name, address) =>
       logger.info(s"Worker `$name` did start on $address")
+      context watch sender()
       workers += WorkerLink(name, address)
+
+    case Terminated(actor) =>
+      // need to remove worker
+      logger.info(s"worker ${actor.path} terminated name ${actor.path.name}, ${actor.path.address}")
+      workers -= WorkerLink(actor.path.name, actor.path.address.toString)
+
 
     case jobRequest: FullJobConfiguration=>
       val originalSender = sender
