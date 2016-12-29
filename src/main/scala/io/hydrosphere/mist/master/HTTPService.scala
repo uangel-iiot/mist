@@ -64,60 +64,74 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
 
   // /jobs
   def route: Flow[HttpRequest, HttpResponse, Unit] =  {
-    path("jobs") {
-      // POST /jobs
-      post {
-        entity(as[FullJobConfiguration]) { jobCreatingRequest =>
-          doComplete(jobCreatingRequest)
-        }
-      }
-    } ~
-    pathPrefix("api" / Segment ) { jobRoute =>
-      pathEnd {
+
+    respondWithHeaders(
+      RawHeader("Access-Control-Allow-Origin", "*") ,
+      RawHeader("Access-Control-Allow-Headers", "x-requested-with,Content-Type,X-M2M-Origin,From,X-M2M-RI,X-M2M-NM") ,
+      RawHeader("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE")) {
+      options {
+
+        complete("hello world")
+
+
+      } ~
+      path("jobs") {
+        // POST /jobs
         post {
-          entity(as[Map[String, Any]]) { jobRequestParams =>
-            fillJobRequestFromConfig(jobRequestParams, jobRoute) match {
-              case Left(error: NoRouteError) =>
-                complete(HttpResponse(StatusCodes.BadRequest, entity = "Job route config is not valid. Unknown resource!"))
-              case Left(error: ConfigError) =>
-                complete(HttpResponse(StatusCodes.InternalServerError, entity = error.reason))
-              case Right(jobRequest: FullJobConfiguration) =>
-                doComplete(jobRequest)
+          entity(as[FullJobConfiguration]) { jobCreatingRequest =>
+            doComplete(jobCreatingRequest)
+          }
+        }
+      } ~
+      pathPrefix("api" / Segment) { jobRoute =>
+        pathEnd {
+          post {
+            entity(as[Map[String, Any]]) { jobRequestParams =>
+              fillJobRequestFromConfig(jobRequestParams, jobRoute) match {
+                case Left(error: NoRouteError) =>
+                  complete(HttpResponse(StatusCodes.BadRequest, entity = "Job route config is not valid. Unknown resource!"))
+                case Left(error: ConfigError) =>
+                  complete(HttpResponse(StatusCodes.InternalServerError, entity = error.reason))
+                case Right(jobRequest: FullJobConfiguration) =>
+                  doComplete(jobRequest)
+              }
             }
           }
         }
-      }
-    } ~ pathPrefix("worker") {
-      path("list") {
-        get {
-          respondWithHeader(RawHeader("Content-Type", "application/json"))
+      } ~
+      pathPrefix("worker") {
+        path("list") {
+          get {
 
 
-          complete {
 
-            val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+            complete {
 
-            val future = workerManagerActor.ask(GetWorkerList)(timeout = FiniteDuration(5000 , TimeUnit.MILLISECONDS))
-            future.map[ToResponseMarshallable] {
-              case a : Seq[Any] =>
-                HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(a)))
-              case _ =>
-                HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("error"->"failed"))))
+              val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+
+              val future = workerManagerActor.ask(GetWorkerList)(timeout = FiniteDuration(5000, TimeUnit.MILLISECONDS))
+              future.map[ToResponseMarshallable] {
+                case a: Seq[Any] =>
+                  HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(a)))
+                case _ =>
+                  HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("error" -> "failed"))))
+              }
             }
           }
-        }
-      } ~ pathPrefix("stop" / Segment ) { workerName =>
-        get {
-          complete {
-            val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
-            val future = workerManagerActor.ask(RemoveContext(workerName))(timeout = FiniteDuration(10000 , TimeUnit.MILLISECONDS))
-            HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("status"->"stopped"))))
-/*
+        } ~
+        pathPrefix("stop" / Segment) { workerName =>
+          delete {
+            complete {
+              val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+              val future = workerManagerActor.ask(RemoveContext(workerName))(timeout = FiniteDuration(10000, TimeUnit.MILLISECONDS))
+              HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("status" -> "stopped"))))
+              /*
             future.map[ToResponseMarshallable] {
               case _ =>
                 HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("status"->"stopped"))))
             }
             */
+            }
           }
         }
       }
@@ -138,11 +152,11 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
         val future = workerManagerActor.ask(jobRequest)(timeout = FiniteDuration(timeDuration.toNanos, TimeUnit.NANOSECONDS))
 
         future
-          .recover {
-            case error: AskTimeoutException => Right(Constants.Errors.jobTimeOutError)
-            case error: Throwable => Right(error.toString)
-          }
-          .map[ToResponseMarshallable] {
+            .recover {
+              case error: AskTimeoutException => Right(Constants.Errors.jobTimeOutError)
+              case error: Throwable => Right(error.toString)
+            }
+            .map[ToResponseMarshallable] {
           case result: Either[Map[String, Any], String] =>
             val jobResult: JobResult = result match {
               case Left(jobResults: Map[String, Any]) =>
