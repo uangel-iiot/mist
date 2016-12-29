@@ -45,8 +45,9 @@ fi
 
 if [ "${SPARK_HOME}" == '' ] || [ ! -d "${SPARK_HOME}" ]
 then
-    echo "SPARK_HOME is not set"
-    exit 1
+	SPARK_SUBMIT=/usr/local/bin/spark-submit
+else
+	SPARK_SUBMIT=$SPARK_HOME/bin/spark-submit
 fi
 
 cmd=$1
@@ -162,8 +163,8 @@ then
         fi
         if [ "${runner}" == 'local' ]
         then
-            echo ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Worker --driver-java-options "-Dconfig.file=${config_file}" ${run_options} "$jar_file" ${namespace}
-            ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Worker --driver-java-options "-Dconfig.file=${config_file}" ${run_options} "$jar_file" ${namespace}
+            echo $SPARK_SUBMIT --class io.hydrosphere.mist.Worker --driver-java-options "-Dconfig.file=${config_file}" ${run_options} "$jar_file" ${namespace}
+            $SPARK_SUBMIT --class io.hydrosphere.mist.Worker --driver-java-options "-Dconfig.file=${config_file}" ${run_options} "$jar_file" ${namespace}
         elif [ "${runner}" == 'docker' ]
         then
             if [ "${docker_host}" == 'localhost' ] || [ "${docker_host}" == '127.0.0.1' ]
@@ -200,7 +201,8 @@ then
 
     if [ "${app}" == 'master' ]
     then
-        ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.Master --driver-java-options "-Dconfig.file=${config_file}" "$jar_file"
+		echo "run " $SPARK_SUBMIT --class io.hydrosphere.mist.Master --driver-java-options "-Dconfig.file=${config_file}" "$jar_file"
+        $SPARK_SUBMIT --class io.hydrosphere.mist.Master --driver-java-options "-Dconfig.file=${config_file}" "$jar_file"
     fi
 
     if [ "${app}" == 'job' ]
@@ -216,9 +218,9 @@ then
         fi
         if [ "$route" == '' ]
         then
-            ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.JobEntryPoint --driver-java-options "-Dconfig.file=${config_file}" "$jar_file" "${job_path}" "${classname}" "${namespace}" "${external_id}" "${parameters}"
+            $SPARK_SUBMIT --class io.hydrosphere.mist.JobEntryPoint --driver-java-options "-Dconfig.file=${config_file}" "$jar_file" "${job_path}" "${classname}" "${namespace}" "${external_id}" "${parameters}"
         else
-            ${SPARK_HOME}/bin/spark-submit --class io.hydrosphere.mist.JobEntryPoint --driver-java-options "-Dconfig.file=${config_file}" "$jar_file" "${route}" "${parameters}"
+            $SPARK_SUBMIT --class io.hydrosphere.mist.JobEntryPoint --driver-java-options "-Dconfig.file=${config_file}" "$jar_file" "${route}" "${parameters}"
         fi
     fi
 

@@ -162,6 +162,15 @@ private[mist] class WorkerManager extends Actor with Logger{
         recoveryActor ! JobCompleted
       }
 
+    case GetWorkerList =>
+      logger.info("receive get worker list")
+      var worker_list = Seq[Any]()
+      workers.foreach{
+        case WorkerLink(name ,address) =>
+              worker_list = Map("name" -> name , "address" -> address) +: worker_list
+      }
+      sender ! worker_list
+
   }
 
 }

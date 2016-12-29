@@ -19,8 +19,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import io.hydrosphere.mist.Messages.{GetWorkerList, RemoveContext}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Success
 
 private[mist] trait JsonFormatSupport extends DefaultJsonProtocol{
   /** We must implement json parse/serializer for [[Any]] type */
@@ -82,6 +84,40 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
               case Right(jobRequest: FullJobConfiguration) =>
                 doComplete(jobRequest)
             }
+          }
+        }
+      }
+    } ~ pathPrefix("worker") {
+      path("list") {
+        get {
+          respondWithHeader(RawHeader("Content-Type", "application/json"))
+
+
+          complete {
+
+            val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+
+            val future = workerManagerActor.ask(GetWorkerList)(timeout = FiniteDuration(5000 , TimeUnit.MILLISECONDS))
+            future.map[ToResponseMarshallable] {
+              case a : Seq[Any] =>
+                HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(a)))
+              case _ =>
+                HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("error"->"failed"))))
+            }
+          }
+        }
+      } ~ pathPrefix("stop" / Segment ) { workerName =>
+        get {
+          complete {
+            val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+            val future = workerManagerActor.ask(RemoveContext(workerName))(timeout = FiniteDuration(10000 , TimeUnit.MILLISECONDS))
+            HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("status"->"stopped"))))
+/*
+            future.map[ToResponseMarshallable] {
+              case _ =>
+                HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("status"->"stopped"))))
+            }
+            */
           }
         }
       }

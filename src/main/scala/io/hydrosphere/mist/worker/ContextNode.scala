@@ -80,11 +80,17 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
     case MemberRemoved(member, prevStatus) =>
       if (member.address == cluster.selfAddress) {
+        cluster.system.shutdown()
+        cluster.system.awaitTermination()
+        sys.exit(0)
+
+        /*
         val future = cluster.system.terminate()
         future.onSuccess {
           case terminated =>
             sys.exit(0)
         }
+        */
 
       }
   }
