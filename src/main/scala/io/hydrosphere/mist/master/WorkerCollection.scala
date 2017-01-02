@@ -2,7 +2,7 @@ package io.hydrosphere.mist.master
 
 import scala.collection.mutable.ArrayBuffer
 
-case class WorkerLink(name: String, address: String)
+case class WorkerLink(name: String, address: String, sparkUI : String)
 
 class WorkerCollection {
 
@@ -30,12 +30,12 @@ class WorkerCollection {
     }
   }
 
-  private val workers = scala.collection.mutable.Map[String, String]()
+  private val workers = scala.collection.mutable.Map[String, WorkerLink]()
 
   private val callbacks = new CallbackCollection()
 
   def +=(worker: WorkerLink): Unit = {
-    workers += (worker.name -> worker.address)
+    workers += (worker.name -> worker)
     callbacks(worker.name).foreach { (callback) =>
       callback(worker)
       callbacks -= (worker.name, callback)
@@ -52,13 +52,20 @@ class WorkerCollection {
 
   def foreach(f: (WorkerLink) => Unit): Unit = {
     workers.foreach {
-      case (name, address) =>
-        f(WorkerLink(name, address))
+      case (name, WorkerLink(n ,address , sparkUI)) =>
+        f(WorkerLink(name, address , sparkUI))
     }
   }
 
   def apply(name: String): WorkerLink = {
-    WorkerLink(name, workers(name))
+    val w = workers.get(name)
+    w match {
+      case Some(v) =>
+            v
+      case _ =>
+            WorkerLink(name , null , null)
+    }
+
   }
 
   def registerCallbackForName(name: String, callback: WorkerCollection.Callback): Unit = {

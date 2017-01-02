@@ -79,13 +79,13 @@ private[mist] class WorkerManager extends Actor with Logger{
   def removeWorkerByName(name: String): Unit = {
     if (workers.contains(name)) {
       val address = workers(name).address
-      workers -= WorkerLink(name, address)
+      workers -= WorkerLink(name, address , null)
       cluster.leave(AddressFromURIString(address))
     }
   }
   def removeLocalWorker(): Unit = {
     workers.foreach{
-      case WorkerLink(name, address) =>
+      case WorkerLink(name, address , sparkUI) =>
         if(address.contains(cluster.selfAddress.host.getOrElse("DummyForNotEqual"))) {
           logger.info(s"cluster.leave for address $name $address")
           cluster.leave(AddressFromURIString(address))
@@ -105,15 +105,15 @@ private[mist] class WorkerManager extends Actor with Logger{
     case RemoveContext(name) =>
       removeWorkerByName(name)
 
-    case WorkerDidStart(name, address) =>
+    case WorkerDidStart(name, address , sparkUI) =>
       logger.info(s"Worker `$name` did start on $address")
       context watch sender()
-      workers += WorkerLink(name, address)
+      workers += WorkerLink(name, address , sparkUI)
 
     case Terminated(actor) =>
       // need to remove worker
       logger.info(s"worker ${actor.path} terminated name ${actor.path.name}, ${actor.path.address}")
-      workers -= WorkerLink(actor.path.name, actor.path.address.toString)
+      workers -= WorkerLink(actor.path.name, actor.path.address.toString , null)
 
 
     case jobRequest: FullJobConfiguration=>
@@ -121,7 +121,7 @@ private[mist] class WorkerManager extends Actor with Logger{
       startNewWorkerWithName(jobRequest.namespace)
 
       workers.registerCallbackForName(jobRequest.namespace, {
-        case WorkerLink(name, address) =>
+        case WorkerLink(name, address , sparkUI) =>
           val remoteActor = cluster.system.actorSelection(s"$address/user/$name")
           if(MistConfig.Contexts.timeout(jobRequest.namespace).isFinite()) {
             val future = remoteActor.ask(jobRequest)(timeout = FiniteDuration(MistConfig.Contexts.timeout(jobRequest.namespace).toNanos, TimeUnit.NANOSECONDS))
@@ -166,8 +166,8 @@ private[mist] class WorkerManager extends Actor with Logger{
       logger.info("receive get worker list")
       var worker_list = Seq[Any]()
       workers.foreach{
-        case WorkerLink(name ,address) =>
-              worker_list = Map("name" -> name , "address" -> address) +: worker_list
+        case WorkerLink(name ,address , sparkUI) =>
+              worker_list = Map("name" -> name , "address" -> address , "sparkUI" -> sparkUI) +: worker_list
       }
       sender ! worker_list
 

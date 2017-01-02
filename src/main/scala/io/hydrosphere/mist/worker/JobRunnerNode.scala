@@ -27,7 +27,7 @@ class JobRunnerNode(path:String, className: String, namespace: String, externalI
   lazy val contextWrapper = ContextBuilder.namedSparkContext(namespace)
 
   override def preStart(): Unit = {
-    serverActor ! WorkerDidStart("JobStarter", cluster.selfAddress.toString)
+    serverActor ! WorkerDidStart("JobStarter", cluster.selfAddress.toString , null)
     cluster.subscribe(self, InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
   }
 

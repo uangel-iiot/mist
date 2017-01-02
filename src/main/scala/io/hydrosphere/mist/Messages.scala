@@ -10,7 +10,7 @@ private[mist] object Messages {
 
   case class RemoveContext(context: String)
 
-  case class WorkerDidStart(namespace: String, address: String)
+  case class WorkerDidStart(namespace: String, address: String , sparkUI : String)
 
   case class AddJobToRecovery(jobId: String, jobConfiguration: FullJobConfiguration)
 

@@ -42,6 +42,7 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
   override def receive: Receive = {
     case jobRequest: FullJobConfiguration =>
       log.info(s"[WORKER] received JobRequest: $jobRequest")
+      //log.info(s"WebUrl = ${contextWrapper.context.uiWebUrl}")
       val originalSender = sender
 
       lazy val runner = Runner(jobRequest, contextWrapper)
@@ -50,6 +51,7 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
         if(MistConfig.Contexts.timeout(jobRequest.namespace).isFinite())
           serverActor ! AddJobToRecovery(runner.id, runner.configuration)
         log.info(s"${jobRequest.namespace}#${runner.id} is running")
+
         runner.run()
       }(executionContext)
       future
@@ -69,7 +71,7 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
     case MemberUp(member) =>
       if ( member.hasRole(Constants.Actors.workerManagerName)) {
         //if ( member.address.host.getOrElse("Master") == cluster.selfAddress.host.getOrElse("Self") ) {
-          context.actorSelection(RootActorPath(member.address) / "user" / Constants.Actors.workerManagerName) ! WorkerDidStart(namespace, cluster.selfAddress.toString)
+          context.actorSelection(RootActorPath(member.address) / "user" / Constants.Actors.workerManagerName) ! WorkerDidStart(namespace, cluster.selfAddress.toString , contextWrapper.context.uiWebUrl.getOrElse(null) )
         //}
       }
 
@@ -80,17 +82,24 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
     case MemberRemoved(member, prevStatus) =>
       if (member.address == cluster.selfAddress) {
-        cluster.system.shutdown()
-        cluster.system.awaitTermination()
-        sys.exit(0)
 
         /*
+        log.info("cluster system shutdown!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        cluster.system.shutdown()
+        log.info("await Termination !!!!!!!!!!! ")
+
+
+        cluster.system.awaitTermination()
+        log.info("system Exit !!!!!!!!!!!")
+        sys.exit(0)
+        */
+
         val future = cluster.system.terminate()
         future.onSuccess {
           case terminated =>
             sys.exit(0)
         }
-        */
+
 
       }
   }
