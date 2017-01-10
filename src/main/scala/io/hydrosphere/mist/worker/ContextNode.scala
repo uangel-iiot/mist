@@ -1,10 +1,13 @@
 package io.hydrosphere.mist.worker
 
+import java.io.{File, IOException}
+import java.nio.file.{Files, Paths}
+import java.util.UUID
 import java.util.concurrent.Executors.newFixedThreadPool
 
 import akka.cluster.ClusterEvent._
 import io.hydrosphere.mist.Messages._
-import io.hydrosphere.mist.contexts.ContextBuilder
+import io.hydrosphere.mist.contexts.{ContextBuilder, ContextWrapper}
 import io.hydrosphere.mist.jobs.FullJobConfiguration
 import akka.cluster.Cluster
 import akka.actor.{Actor, ActorLogging, Props, RootActorPath}
@@ -13,9 +16,8 @@ import io.hydrosphere.mist.{Constants, MistConfig}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Random, Success}
-
-
 import scala.concurrent.ExecutionContext.Implicits.global
+
 
 
 class ContextNode(namespace: String) extends Actor with ActorLogging{
@@ -29,7 +31,91 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
   val nodeAddress = cluster.selfAddress
 
-  lazy val contextWrapper = ContextBuilder.namedSparkContext(namespace)
+  val replOutputDir = createTempDir()
+
+  sys addShutdownHook{
+    deleteRecursively(replOutputDir)
+  }
+
+  lazy val contextWrapper =  ContextBuilder.namedSparkContext(namespace , replOutputDir )
+  ContextNode.cw = contextWrapper
+
+  var intp : ScalaInterpreter = null
+
+  var numRequest = 0
+
+
+  def createDirectory(root: String, namePrefix: String = "spark"): File = {
+    var attempts = 0
+    val maxAttempts = 10
+    var dir: File = null
+    while (dir == null) {
+      attempts += 1
+      if (attempts > maxAttempts) {
+        throw new java.io.IOException("Failed to create a temp directory (under " + root + ") after " +
+            maxAttempts + " attempts!")
+      }
+      try {
+        dir = new File(root, namePrefix + "-" + UUID.randomUUID.toString)
+        if (dir.exists() || !dir.mkdirs()) {
+          dir = null
+        }
+      } catch { case e: SecurityException => dir = null; }
+    }
+    dir.getCanonicalFile
+  }
+
+
+  def createTempDir(root: String = System.getProperty("java.io.tmpdir"),
+                    namePrefix: String = "mist"): File = {
+    val dir = createDirectory(root, namePrefix)
+    dir
+  }
+  def isSymlink(file: File): Boolean = {
+    return Files.isSymbolicLink(Paths.get(file.toURI))
+  }
+
+  private def listFilesSafely(file: File): Seq[File] = {
+    if (file.exists()) {
+      val files = file.listFiles()
+      if (files == null) {
+        throw new IOException("Failed to list files for dir: " + file)
+      }
+      files
+    } else {
+      List()
+    }
+  }
+
+  def deleteRecursively(file: File) {
+    if (file != null) {
+      try {
+        if (file.isDirectory && !isSymlink(file)) {
+          var savedIOException: IOException = null
+          for (child <- listFilesSafely(file)) {
+            try {
+              deleteRecursively(child)
+            } catch {
+              // In case of multiple exceptions, only last one will be thrown
+              case ioe: IOException => savedIOException = ioe
+            }
+          }
+          if (savedIOException != null) {
+            throw savedIOException
+          }
+        }
+      } finally {
+        if (!file.delete()) {
+          // Delete can also fail if the file simply did not exist
+          if (file.exists()) {
+            throw new IOException("Failed to delete: " + file.getAbsolutePath)
+          }
+        }
+      }
+    }
+  }
+
+
 
   override def preStart(): Unit = {
     cluster.subscribe(self, InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
@@ -39,8 +125,42 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
     cluster.unsubscribe(self)
   }
 
+
+  def getAttributes() : Map[String , Any] = {
+
+    if(numRequest == 0)
+      Map()
+    else
+      Map("sparkUI" -> contextWrapper.context.uiWebUrl.getOrElse(null))
+  }
+
+  log.info(s"outputDir = ${contextWrapper.sparkConf.get("spark.repl.class.outputDir")}")
   override def receive: Receive = {
+    case ScalaScript(namespace , script) => {
+      var currentRequest = numRequest
+      numRequest = numRequest+1
+
+      if(intp == null)
+        intp = new ScalaInterpreter(namespace, contextWrapper.sparkConf)
+
+      val b = new java.io.ByteArrayOutputStream()
+
+      Console.withOut(b) {
+        intp.interpret(script)
+
+        sender ! b.toString
+      }
+
+
+    }
+    case GetWorkerInformation => {
+      sender ! WorkerInformation(namespace , cluster.selfAddress.toString , getAttributes())
+    }
+
     case jobRequest: FullJobConfiguration =>
+      var currentRequest = numRequest
+      numRequest = numRequest+1
+
       log.info(s"[WORKER] received JobRequest: $jobRequest")
       //log.info(s"WebUrl = ${contextWrapper.context.uiWebUrl}")
       val originalSender = sender
@@ -53,6 +173,7 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
         log.info(s"${jobRequest.namespace}#${runner.id} is running")
 
         runner.run()
+
       }(executionContext)
       future
         .recover {
@@ -60,6 +181,7 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
         }(ExecutionContext.global)
         .andThen {
           case _ =>
+
             if(MistConfig.Contexts.timeout(jobRequest.namespace).isFinite())
               serverActor ! RemoveJobFromRecovery(runner.id)
         }(ExecutionContext.global)
@@ -71,7 +193,10 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
     case MemberUp(member) =>
       if ( member.hasRole(Constants.Actors.workerManagerName)) {
         //if ( member.address.host.getOrElse("Master") == cluster.selfAddress.host.getOrElse("Self") ) {
-          context.actorSelection(RootActorPath(member.address) / "user" / Constants.Actors.workerManagerName) ! WorkerDidStart(namespace, cluster.selfAddress.toString , contextWrapper.context.uiWebUrl.getOrElse(null) )
+          //context.actorSelection(RootActorPath(member.address) / "user" / Constants.Actors.workerManagerName) ! WorkerDidStart(namespace, cluster.selfAddress.toString , contextWrapper.context.uiWebUrl.getOrElse(null) )
+
+        context.actorSelection(RootActorPath(member.address) / "user" / Constants.Actors.workerManagerName) ! WorkerDidStart(namespace, cluster.selfAddress.toString ,  getAttributes() )
+
         //}
       }
 
@@ -96,7 +221,10 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
         val future = cluster.system.terminate()
         future.onSuccess {
+
           case terminated =>
+
+
             sys.exit(0)
         }
 
@@ -107,4 +235,5 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
 object ContextNode {
   def props(namespace: String): Props = Props(classOf[ContextNode], namespace)
+  var cw : ContextWrapper = null
 }

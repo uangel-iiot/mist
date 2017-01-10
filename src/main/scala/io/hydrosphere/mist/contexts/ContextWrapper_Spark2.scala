@@ -31,11 +31,13 @@ private[mist] trait ContextWrapper {
     this
   }
 
-  def context: SparkContext
+  lazy val context = {
+    SparkContext.getOrCreate(sparkConf)
+  }
 
   def javaContext: JavaSparkContext = new JavaSparkContext(context)
 
-  def sparkConf: SparkConf = context.getConf
+  def sparkConf: SparkConf
 
   def addJar(jarPath: String): Unit = {
     val jarAbsolutePath = new File(jarPath).getAbsolutePath

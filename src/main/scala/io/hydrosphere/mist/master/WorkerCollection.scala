@@ -2,7 +2,7 @@ package io.hydrosphere.mist.master
 
 import scala.collection.mutable.ArrayBuffer
 
-case class WorkerLink(name: String, address: String, sparkUI : String)
+case class WorkerLink(name: String, address : String , var attributes : Map[String , Any])
 
 class WorkerCollection {
 
@@ -42,8 +42,8 @@ class WorkerCollection {
     }
   }
 
-  def -=(worker: WorkerLink): Unit = {
-    workers -= worker.name
+  def -=(workerName: String): Unit = {
+    workers -= workerName
   }
 
   def contains(name: String): Boolean = {
@@ -52,10 +52,19 @@ class WorkerCollection {
 
   def foreach(f: (WorkerLink) => Unit): Unit = {
     workers.foreach {
-      case (name, WorkerLink(n ,address , sparkUI)) =>
-        f(WorkerLink(name, address , sparkUI))
+      case (name, WorkerLink(n ,address , attributes)) =>
+        f(WorkerLink(name, address, attributes))
     }
   }
+
+	def updateAttributes(name : String , attributes : Map[String , Any]) :Unit = {
+		val w = workers.get(name)
+		w match {
+			case Some(v) =>
+				v.attributes = attributes
+			case _ =>
+		}
+	}
 
   def apply(name: String): WorkerLink = {
     val w = workers.get(name)
@@ -63,7 +72,7 @@ class WorkerCollection {
       case Some(v) =>
             v
       case _ =>
-            WorkerLink(name , null , null)
+            WorkerLink(name , null,  Map())
     }
 
   }

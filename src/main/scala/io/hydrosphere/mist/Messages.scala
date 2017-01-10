@@ -10,7 +10,10 @@ private[mist] object Messages {
 
   case class RemoveContext(context: String)
 
-  case class WorkerDidStart(namespace: String, address: String , sparkUI : String)
+  case class WorkerDidStart(namespace: String, address: String , attributes : Map[String , Any])
+
+  case class GetWorkerInformation()
+  case class WorkerInformation(namespace: String, address: String , attributes : Map[String , Any])
 
   case class AddJobToRecovery(jobId: String, jobConfiguration: FullJobConfiguration)
 
@@ -18,4 +21,5 @@ private[mist] object Messages {
 
   case class GetWorkerList()
 
+  case class ScalaScript(namespace : String , script : String)
 }

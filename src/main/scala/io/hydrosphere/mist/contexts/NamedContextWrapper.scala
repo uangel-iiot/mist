@@ -1,5 +1,5 @@
 package io.hydrosphere.mist.contexts
 
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkConf, SparkContext}
 
-private[mist] case class NamedContextWrapper(context: SparkContext, namespace: String) extends ContextWrapper
+private[mist] case class NamedContextWrapper(sparkConf: SparkConf, namespace: String) extends ContextWrapper

@@ -6,6 +6,7 @@ import org.apache.spark.SparkContext
 trait ContextSupport {
   private var _context: SparkContext = _
   protected def context: SparkContext = _context
+  protected def sc: SparkContext = _context
 
   private[mist] def setup(sc: ContextWrapper) = _context = sc.context
 }

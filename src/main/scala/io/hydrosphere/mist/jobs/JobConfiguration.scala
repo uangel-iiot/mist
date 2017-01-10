@@ -19,3 +19,9 @@ private[mist] case class FullJobConfiguration(path: String,
 private[mist] case class RestificatedJobConfiguration(route: String,
                                                       parameters: Map[String, Any] = Map(),
                                                       externalId: Option[String] = None) extends JobConfiguration
+
+                       
+
+                                                      
+                                                   
+private[mist] case class REPLConfiguration(namesapce : String , code : String) extends JobConfiguration

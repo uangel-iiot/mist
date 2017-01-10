@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import io.hydrosphere.mist.Messages.{GetWorkerList, RemoveContext}
+import io.hydrosphere.mist.Messages.{GetWorkerList, RemoveContext, ScalaScript}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
@@ -95,6 +95,28 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
                 case Right(jobRequest: FullJobConfiguration) =>
                   doComplete(jobRequest)
               }
+            }
+          }
+        }
+      } ~
+      pathPrefix("repl" / Segment) { namespace =>
+        pathEnd {
+          post {
+            entity(as[String]) { code =>
+
+              complete {
+
+                val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+
+                val future = workerManagerActor.ask(ScalaScript(namespace , code))(timeout = FiniteDuration(30000, TimeUnit.MILLISECONDS))
+                future.map[ToResponseMarshallable] {
+                  case a: String =>
+                    HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`text/plain` , HttpCharsets.`UTF-8`), a))
+                  case _ =>
+                    HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("error" -> "failed"))))
+                }
+              }
+
             }
           }
         }

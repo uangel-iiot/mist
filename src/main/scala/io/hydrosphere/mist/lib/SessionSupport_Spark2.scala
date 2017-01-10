@@ -6,5 +6,6 @@ import org.apache.spark.sql.SparkSession
 trait SessionSupport extends ContextSupport {
 
   def session: SparkSession
+  def spark: SparkSession
 
 }

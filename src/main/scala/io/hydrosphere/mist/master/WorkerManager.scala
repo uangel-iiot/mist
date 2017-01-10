@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, AddressFromURIString, Terminated}
 import akka.pattern.ask
 import akka.cluster.Cluster
+import akka.util.Timeout
 import io.hydrosphere.mist.{Logger, MistConfig, Worker}
 
 import scala.concurrent.duration.FiniteDuration
@@ -15,6 +16,7 @@ import io.hydrosphere.mist.jobs._
 import scala.language.postfixOps
 import scala.sys.process._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 /** Manages context repository */
 private[mist] class WorkerManager extends Actor with Logger{
@@ -79,13 +81,13 @@ private[mist] class WorkerManager extends Actor with Logger{
   def removeWorkerByName(name: String): Unit = {
     if (workers.contains(name)) {
       val address = workers(name).address
-      workers -= WorkerLink(name, address , null)
+      workers -= name
       cluster.leave(AddressFromURIString(address))
     }
   }
   def removeLocalWorker(): Unit = {
     workers.foreach{
-      case WorkerLink(name, address , sparkUI) =>
+      case WorkerLink(name, address , attributes) =>
         if(address.contains(cluster.selfAddress.host.getOrElse("DummyForNotEqual"))) {
           logger.info(s"cluster.leave for address $name $address")
           cluster.leave(AddressFromURIString(address))
@@ -105,15 +107,15 @@ private[mist] class WorkerManager extends Actor with Logger{
     case RemoveContext(name) =>
       removeWorkerByName(name)
 
-    case WorkerDidStart(name, address , sparkUI) =>
+    case WorkerDidStart(name, address , attributes) =>
       logger.info(s"Worker `$name` did start on $address")
       context watch sender()
-      workers += WorkerLink(name, address , sparkUI)
+      workers += WorkerLink(name, address , attributes)
 
     case Terminated(actor) =>
       // need to remove worker
       logger.info(s"worker ${actor.path} terminated name ${actor.path.name}, ${actor.path.address}")
-      workers -= WorkerLink(actor.path.name, actor.path.address.toString , null)
+      workers -=actor.path.name
 
 
     case jobRequest: FullJobConfiguration=>
@@ -137,6 +139,29 @@ private[mist] class WorkerManager extends Actor with Logger{
             remoteActor ! jobRequest
           }
       })
+      
+    case scalaScript : ScalaScript => {
+      val originalSender = sender
+      startNewWorkerWithName(scalaScript.namespace)
+
+      workers.registerCallbackForName(scalaScript.namespace, {
+        case WorkerLink(name, address , sparkUI) =>
+          val remoteActor = cluster.system.actorSelection(s"$address/user/$name")
+          if(MistConfig.Contexts.timeout(scalaScript.namespace).isFinite()) {
+            val future = remoteActor.ask(scalaScript)(timeout = FiniteDuration(MistConfig.Contexts.timeout(scalaScript.namespace).toNanos, TimeUnit.NANOSECONDS))
+            future.onSuccess {
+              case response: Any =>
+                if (MistConfig.Contexts.isDisposable(name)) {
+                  removeWorkerByName(name)
+                }
+                originalSender ! response
+            }
+          }
+          else {
+            remoteActor ! scalaScript
+          }
+      })
+    }
 
     case AddJobToRecovery(jobId, jobConfiguration) =>
       if (MistConfig.Recovery.recoveryOn) {
@@ -163,14 +188,42 @@ private[mist] class WorkerManager extends Actor with Logger{
       }
 
     case GetWorkerList =>
+	    val orginalSender = sender
       logger.info("receive get worker list")
-      var worker_list = Seq[Any]()
+      var worker_list = Seq[Future[Any]]()
       workers.foreach{
-        case WorkerLink(name ,address , sparkUI) =>
-              worker_list = Map("name" -> name , "address" -> address , "sparkUI" -> sparkUI) +: worker_list
-      }
-      sender ! worker_list
+        case WorkerLink(name ,address , attributes) =>
+        {
+	        val m =
+          if(!attributes.contains("sparkUI") ) {
+	          implicit val timeout  =  Timeout(3000 , TimeUnit.MILLISECONDS)
+	          val remoteActor = cluster.system.actorSelection(s"$address/user/$name")
 
+	          val future = remoteActor ? GetWorkerInformation
+	          future.map{
+		          case WorkerInformation(name , address , attributes) =>
+			          workers.updateAttributes(name , attributes)
+			          Map("name" -> name , "address" -> address , "attributes" -> attributes)
+	          }
+
+          } else {
+	          Future {
+		          Map("name" -> name , "address" -> address , "attributes" -> attributes)
+	          }
+
+          }
+	        worker_list = m +: worker_list
+
+
+
+
+        }
+      }
+	    Future.fold(worker_list)(Vector.empty[Any])(_ :+ _ ).onSuccess{
+		    case x => {
+			    orginalSender ! x
+		    }
+	    }
   }
 
 }
