@@ -2,6 +2,7 @@ package io.hydrosphere.mist.worker
 
 
 import java.io.File
+import java.net.URLClassLoader
 
 import io.hydrosphere.mist.contexts.ContextBuilder
 import org.apache.spark.{SparkConf, SparkContext}
@@ -22,15 +23,20 @@ object InterpreterVariable {
 	}
 }
 
-class ScalaInterpreter(namespace : String , sparkConf : SparkConf) {
+class ScalaInterpreter(namespace : String , sparkConf : SparkConf , classLoader : ClassLoader) {
+
 	val settings = new GenericRunnerSettings( println _ )
 	//settings.paret
-	settings.embeddedDefaults( Thread.currentThread().getContextClassLoader())
+	println("scala interpreter embed defauls. cl = " + classLoader);
+	settings.embeddedDefaults( classLoader )
 	settings.Yreplclassbased.value = true
 	settings.usejavacp.value = true
 	settings.Yreploutdir.value = sparkConf.get("spark.repl.class.outputDir")
 	settings.outputDirs.setSingleOutput(sparkConf.get("spark.repl.class.outputDir"))
+
 	settings.classpath.value = getUserJars(sparkConf , true).mkString(File.pathSeparator)
+
+	println("interpreter settings.classpath.value = " + settings.classpath.value)
 	//sys.props("java.class.path")
 
 	//settings..setSingleOutput(contextWrapper.sparkConf.get("spark.repl.class.outputDir"))
@@ -39,6 +45,22 @@ class ScalaInterpreter(namespace : String , sparkConf : SparkConf) {
 	scalaInterpreter.process(settings)
 	//val m = new IMain(settings , new PrintWriter(stringWriter))
 	val m = scalaInterpreter.intp
+
+	/*
+	if(classLoader.isInstanceOf[URLClassLoader])
+		classLoader.asInstanceOf[URLClassLoader].getURLs.foreach((u) => {
+			println("add url  u = " + u)
+			m.addUrlsToClassPath(u)
+		})
+	*/
+
+	def unionFileSeq(leftList : Seq[String] , rightList : Option[Seq[String]]) : Set[String] = {
+		var allFiles = Set[String]()
+		allFiles ++= leftList
+		rightList.foreach { value => allFiles ++= value }
+
+		allFiles.filter { _.nonEmpty }
+	}
 
 	def unionFileLists(leftList: Option[String], rightList: Option[String]): Set[String] = {
 		var allFiles = Set[String]()
@@ -49,16 +71,26 @@ class ScalaInterpreter(namespace : String , sparkConf : SparkConf) {
 
 	def getUserJars(conf: SparkConf, isShell: Boolean = false): Seq[String] = {
 		val sparkJars = conf.getOption("spark.jars")
+
+		var ret = sparkJars.map(_.split(",")).map(_.filter(_.nonEmpty)).toSeq.flatten
 		if (conf.get("spark.master") == "yarn" && isShell) {
 			val yarnJars = conf.getOption("spark.yarn.dist.jars")
-			unionFileLists(sparkJars, yarnJars).toSeq
-		} else {
-			sparkJars.map(_.split(",")).map(_.filter(_.nonEmpty)).toSeq.flatten
+			ret = unionFileSeq(ret, yarnJars.map(_.split(","))).toSeq
 		}
+		if(classLoader.isInstanceOf[URLClassLoader])
+		{
+			classLoader.asInstanceOf[URLClassLoader].getURLs.foreach(u => println("Mist Url Class Loader jar = " + u))
+			ret = unionFileSeq(ret , Some(classLoader.asInstanceOf[URLClassLoader].getURLs.map(_.toString).toSeq)).toSeq
+
+		}
+
+		ret
 	}
 
-	def interpret(code : String) : Result = {
+	def interpret(code : String) : Unit = {
 		m.interpret(code)
+		//scalaInterpreter.processLine(code)
+
 	}
 
 }
@@ -70,6 +102,7 @@ class ScalaILoop(namespace : String)
 
 
 	def initializeSpark() {
+
 
 			processLine(s"""
         @transient val spark = io.hydrosphere.mist.worker.InterpreterVariable.createSparkSession(\"${namespace}\")
@@ -94,5 +127,3 @@ class ScalaILoop(namespace : String)
 	}
 
 }
-
-

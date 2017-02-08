@@ -6,6 +6,7 @@ import io.hydrosphere.mist.jobs.{FullJobConfiguration, JobFile}
 import io.hydrosphere.mist.jobs.runners.Runner.Status.Status
 import io.hydrosphere.mist.jobs.runners.jar.JarRunner
 import io.hydrosphere.mist.jobs.runners.python.PythonRunner
+import io.hydrosphere.mist.worker.MistClassLoader
 
 
 private[mist] trait Runner extends Logger {
@@ -33,11 +34,11 @@ private[mist] object Runner {
     val Initialized, Running, Stopped, Aborted = Value
   }
 
-  def apply(configuration: FullJobConfiguration, contextWrapper: ContextWrapper): Runner = {
+  def apply(configuration: FullJobConfiguration, contextWrapper: ContextWrapper , classLoader : MistClassLoader): Runner = {
     val jobFile = JobFile(configuration.path)
 
     JobFile.fileType(configuration.path) match {
-      case JobFile.FileType.Jar => new JarRunner(configuration, jobFile, contextWrapper)
+      case JobFile.FileType.Jar => new JarRunner(configuration, jobFile, contextWrapper , classLoader)
       case JobFile.FileType.Python => new PythonRunner(configuration, jobFile, contextWrapper)
       case _ => throw new Exception(s"Unknown file type in ${configuration.path}")
     }

@@ -1,6 +1,7 @@
 package io.hydrosphere.mist.worker
 
 import java.io.{File, IOException}
+import java.net.{URL, URLClassLoader}
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 import java.util.concurrent.Executors.newFixedThreadPool
@@ -19,8 +20,22 @@ import scala.util.{Failure, Random, Success}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 
+class MistClassLoader(urls: Array[URL], parent : ClassLoader) extends URLClassLoader(urls, parent) {
+
+  override def addURL(url: URL): Unit = {
+    super.addURL(url)
+  }
+
+  override def getURLs(): Array[URL] = {
+    super.getURLs()
+  }
+}
 
 class ContextNode(namespace: String) extends Actor with ActorLogging{
+
+  val cl = new MistClassLoader( Array[URL]() , Thread.currentThread().getContextClassLoader)
+
+  Thread.currentThread().setContextClassLoader(cl)
 
   val executionContext = ExecutionContext.fromExecutorService(newFixedThreadPool(MistConfig.Settings.threadNumber))
 
@@ -137,11 +152,12 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
   log.info(s"outputDir = ${contextWrapper.sparkConf.get("spark.repl.class.outputDir")}")
   override def receive: Receive = {
     case ScalaScript(namespace , script) => {
+
       var currentRequest = numRequest
       numRequest = numRequest+1
 
       if(intp == null)
-        intp = new ScalaInterpreter(namespace, contextWrapper.sparkConf)
+        intp = new ScalaInterpreter(namespace, contextWrapper.sparkConf , cl)
 
       val b = new java.io.ByteArrayOutputStream()
 
@@ -158,6 +174,18 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
     }
 
     case jobRequest: FullJobConfiguration =>
+
+      if(intp == null)
+      {
+        Thread.currentThread().setContextClassLoader(cl)
+      }
+      else
+      {
+        intp.scalaInterpreter.intp.setContextClassLoader()
+      }
+
+
+
       var currentRequest = numRequest
       numRequest = numRequest+1
 
@@ -165,7 +193,7 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
       //log.info(s"WebUrl = ${contextWrapper.context.uiWebUrl}")
       val originalSender = sender
 
-      lazy val runner = Runner(jobRequest, contextWrapper)
+      lazy val runner = Runner(jobRequest, contextWrapper, cl)
 
       val future: Future[Either[Map[String, Any], String]] = Future {
         if(MistConfig.Contexts.timeout(jobRequest.namespace).isFinite())

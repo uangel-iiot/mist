@@ -13,3 +13,5 @@ master.pid
 .DS_STORE
 scalastyle-config.xml
 /Vagrantfile
+/bin/
+/eclipse_bin/

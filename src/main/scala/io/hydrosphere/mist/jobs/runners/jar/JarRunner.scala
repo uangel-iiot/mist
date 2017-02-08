@@ -7,13 +7,20 @@ import io.hydrosphere.mist.contexts.ContextWrapper
 import io.hydrosphere.mist.jobs.{FullJobConfiguration, JobFile}
 import io.hydrosphere.mist.jobs.runners.Runner
 import io.hydrosphere.mist.lib.MistJob
+import io.hydrosphere.mist.worker.MistClassLoader
 
-private[mist] class JarRunner(jobConfiguration: FullJobConfiguration, jobFile: JobFile, contextWrapper: ContextWrapper) extends Runner {
+private[mist] class JarRunner(jobConfiguration: FullJobConfiguration, jobFile: JobFile, contextWrapper: ContextWrapper, classLoader : MistClassLoader) extends Runner {
 
   override val configuration: FullJobConfiguration = jobConfiguration
 
+  contextWrapper.addJar(jobFile.file.getPath)
+
   val cls = {
-    val classLoader = new URLClassLoader(Array[URL](jobFile.file.toURI.toURL), getClass.getClassLoader)
+    //val classLoader = new URLClassLoader(Array[URL](jobFile.file.toURI.toURL), getClass.getClassLoader)
+    //val classLoader = Thread.currentThread().getContextClassLoader.asInstanceOf[MistClassLoader]
+
+    classLoader.addURL( jobFile.file.toURI.toURL );
+    println("JarRunner class loader = " + getClass.getClassLoader);
     classLoader.loadClass(configuration.className)
   }
 
@@ -21,7 +28,6 @@ private[mist] class JarRunner(jobConfiguration: FullJobConfiguration, jobFile: J
   val objectRef = cls.getField("MODULE$").get(None)
 
   // We must add user jar into spark context
-  contextWrapper.addJar(jobFile.file.getPath)
 
   _status = Runner.Status.Initialized
 

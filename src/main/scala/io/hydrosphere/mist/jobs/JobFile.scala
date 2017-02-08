@@ -75,7 +75,7 @@ class HDFSJobFile(path: String) extends JobFile {
     }
     val remotePath = new Path(path)
     val checkSum = fileSystem.getFileChecksum(remotePath)
-    val localPath = new Path(s"/tmp/${checkSum.toString}")
+    val localPath = new Path(s"/tmp/${checkSum.toString}.jar".replaceAll(":" , "_"))
     if (!new File(localPath.toString).exists()) {
       fileSystem.copyToLocalFile(false, remotePath, localPath, true)
     }

@@ -37,10 +37,12 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-hive" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-repl" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.1.0",
+  "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion,
+  "org.apache.spark" % "spark-streaming-kafka-0-8_2.11" % sparkVersion,
 
-  "org.json4s" %% "json4s-native" % "3.2.10",
-  "org.json4s" %% "json4s-jackson" % "3.2.10",
+
+  "org.json4s" %% "json4s-native" % "3.2.11",
+  "org.json4s" %% "json4s-jackson" % "3.2.11",
   "com.typesafe" % "config" % "1.3.1",
   "com.typesafe.akka" %% "akka-http-core-experimental" % "2.0.4",
   "com.typesafe.akka" %% "akka-http-experimental" % "2.0.4",
