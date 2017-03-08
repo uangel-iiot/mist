@@ -146,7 +146,10 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
     if(numRequest == 0)
       Map()
     else
-      Map("sparkUI" -> contextWrapper.context.uiWebUrl.getOrElse(null))
+      Map(
+        "sparkUI" -> contextWrapper.context.uiWebUrl.getOrElse(null) ,
+        "applicationId" -> contextWrapper.context.applicationId
+      )
   }
 
   log.info(s"outputDir = ${contextWrapper.sparkConf.get("spark.repl.class.outputDir")}")
