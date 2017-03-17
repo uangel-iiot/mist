@@ -5,6 +5,7 @@ import java.io.File
 import java.net.URLClassLoader
 
 import io.hydrosphere.mist.contexts.ContextBuilder
+import io.hydrosphere.mist.jobs.HDFSJobFile
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
 
@@ -23,7 +24,7 @@ object InterpreterVariable {
 	}
 }
 
-class ScalaInterpreter(namespace : String , sparkConf : SparkConf , classLoader : ClassLoader) {
+class ScalaInterpreter(namespace : String , sparkConf : SparkConf ,  classLoader : ClassLoader , userJars : Option[Seq[String]] =None) {
 
 	val settings = new GenericRunnerSettings( println _ )
 	//settings.paret
@@ -34,7 +35,7 @@ class ScalaInterpreter(namespace : String , sparkConf : SparkConf , classLoader 
 	settings.Yreploutdir.value = sparkConf.get("spark.repl.class.outputDir")
 	settings.outputDirs.setSingleOutput(sparkConf.get("spark.repl.class.outputDir"))
 
-	settings.classpath.value = getUserJars(sparkConf , true).mkString(File.pathSeparator)
+	settings.classpath.value = getUserJars(sparkConf , userJars, true).mkString(File.pathSeparator)
 
 	println("interpreter settings.classpath.value = " + settings.classpath.value)
 	//sys.props("java.class.path")
@@ -69,9 +70,22 @@ class ScalaInterpreter(namespace : String , sparkConf : SparkConf , classLoader 
 		allFiles.filter { _.nonEmpty }
 	}
 
-	def getUserJars(conf: SparkConf, isShell: Boolean = false): Seq[String] = {
+	def getUserJars(conf: SparkConf, userJars : Option[Seq[String]], isShell: Boolean = false): Seq[String] = {
 		val sparkJars = conf.getOption("spark.jars")
 
+		val uj = userJars.map{_.map{
+			(path) => {
+				println(s"path = ${path}")
+				if( path.startsWith("hdfs:/")) {
+					val hdfsJobFile = new HDFSJobFile(path)
+					println(s"hdfsJobFile = ${hdfsJobFile.file.getPath}")
+					hdfsJobFile.file.getPath
+				}
+				else {
+					path
+				}
+			}
+		}}
 		var ret = sparkJars.map(_.split(",")).map(_.filter(_.nonEmpty)).toSeq.flatten
 		if (conf.get("spark.master") == "yarn" && isShell) {
 			val yarnJars = conf.getOption("spark.yarn.dist.jars")
@@ -84,7 +98,7 @@ class ScalaInterpreter(namespace : String , sparkConf : SparkConf , classLoader 
 
 		}
 
-		ret
+		unionFileSeq(ret , uj).toSeq
 	}
 
 	def interpret(code : String) : Unit = {

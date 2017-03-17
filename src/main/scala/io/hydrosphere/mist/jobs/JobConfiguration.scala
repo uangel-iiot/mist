@@ -14,7 +14,10 @@ private[mist] case class FullJobConfiguration(path: String,
                                               className: String,
                                               namespace: String,
                                               parameters: Map[String, Any] = Map(),
-                                              externalId: Option[String] = None) extends JobConfiguration
+                                              externalId: Option[String] = None,
+                                              sparkConf : Option[Map[String , Any]] = None
+                                             ) extends JobConfiguration
+
 
 private[mist] case class RestificatedJobConfiguration(route: String,
                                                       parameters: Map[String, Any] = Map(),
@@ -22,6 +25,4 @@ private[mist] case class RestificatedJobConfiguration(route: String,
 
                        
 
-                                                      
-                                                   
-private[mist] case class REPLConfiguration(namesapce : String , code : String) extends JobConfiguration
+private[mist] case class REPLConfiguration(namesapce : String , code : String , sparkConf : Option[Map[String , Any]]) extends JobConfiguration

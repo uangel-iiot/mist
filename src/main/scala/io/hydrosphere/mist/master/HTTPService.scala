@@ -47,10 +47,13 @@ private[mist] trait JsonFormatSupport extends DefaultJsonProtocol{
     }
   }
 
+  case class ReplRequest(language : String , script : String , sparkConf : Option[Map[String , Any]] = None)
+
   // JSON to JobConfiguration mapper (6 fields)
-  implicit val jobCreatingRequestFormat = jsonFormat5(FullJobConfiguration)
+  implicit val jobCreatingRequestFormat = jsonFormat6(FullJobConfiguration)
   implicit val jobCreatingRestificatedFormat = jsonFormat3(RestificatedJobConfiguration)
   implicit val jobResultFormat = jsonFormat4(JobResult)
+  implicit val replRequestFormat = jsonFormat3(ReplRequest)
 
   sealed trait JobConfigError
   case class NoRouteError(reason: String) extends JobConfigError
@@ -61,6 +64,7 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
 
   implicit val system: ActorSystem
   implicit val materializer: ActorMaterializer
+
 
   // /jobs
   def route: Flow[HttpRequest, HttpResponse, Unit] =  {
@@ -108,7 +112,7 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
 
                 val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
 
-                val future = workerManagerActor.ask(ScalaScript(namespace , code))(timeout = FiniteDuration(30000, TimeUnit.MILLISECONDS))
+                val future = workerManagerActor.ask(ScalaScript(namespace , code))(timeout = FiniteDuration(60000, TimeUnit.MILLISECONDS))
                 future.map[ToResponseMarshallable] {
                   case a: String =>
                     HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`text/plain` , HttpCharsets.`UTF-8`), a))
@@ -121,11 +125,30 @@ private[mist] trait HTTPService extends Directives with SprayJsonSupport with Js
           }
         }
       } ~
+      pathPrefix("repl_ext" / Segment) { namespace =>
+        pathEnd {
+          post {
+            entity(as[ReplRequest]) { replRequest =>
+
+              complete {
+
+                val workerManagerActor = system.actorSelection(s"akka://mist/user/${Constants.Actors.workerManagerName}")
+
+                val future = workerManagerActor.ask(ScalaScript(namespace , replRequest.script , replRequest.sparkConf))(timeout = FiniteDuration(60000, TimeUnit.MILLISECONDS))
+                future.map[ToResponseMarshallable] {
+                  case a: String =>
+                    HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`text/plain` , HttpCharsets.`UTF-8`), a))
+                  case _ =>
+                    HttpResponse(entity = HttpEntity(ContentType(MediaTypes.`application/json`), Json(DefaultFormats).write(Map("error" -> "failed"))))
+                }
+              }
+            }
+          }
+        }
+      } ~
       pathPrefix("worker") {
         path("list") {
           get {
-
-
 
             complete {
 

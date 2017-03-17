@@ -19,7 +19,7 @@ private[mist] object ContextBuilder {
     * @param namespace namespace
     * @return [[ContextWrapper]] with prepared context
     */
-  def namedSparkContext(namespace: String , replOutputDir : File = null): ContextWrapper = {
+  def namedSparkContext(namespace: String , replOutputDir : File = null , userConf : Option[Map[String,Any]] = None ): ContextWrapper = {
 
     if(wrapper == null)
     {
@@ -33,11 +33,32 @@ private[mist] object ContextBuilder {
       val sparkConfSettings = MistConfig.Contexts.sparkConf(namespace)
 
       for (keyValue: List[String] <- sparkConfSettings) {
-        sparkConf.set(keyValue.head, keyValue(1))
+          println(s"set spark conf ${keyValue.head} = ${keyValue(1)}")
+          sparkConf.set(keyValue.head, keyValue(1))
       }
 
 
+        userConf.foreach {
+            _.foreach{
+                case (key,value) => {
+                    sparkConf.set(key , value.toString)
+                }
+            }
+        }
+
+
       wrapper = NamedContextWrapper(sparkConf, namespace)
+
+       userConf.foreach{
+           _.get("mist.worker.jars").foreach{
+               case jars : Seq[String] => {
+                    jars.foreach { j =>
+                        println(s"add jar ${j}")
+                        wrapper.addJar(j)
+                    }
+               }
+           }
+       }
     }
 
     wrapper

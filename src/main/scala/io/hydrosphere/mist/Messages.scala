@@ -21,5 +21,5 @@ private[mist] object Messages {
 
   case class GetWorkerList()
 
-  case class ScalaScript(namespace : String , script : String)
+  case class ScalaScript(namespace : String , script : String , sparkConf : Option[Map[String , Any]] = None)
 }

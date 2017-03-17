@@ -52,8 +52,8 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
     deleteRecursively(replOutputDir)
   }
 
-  lazy val contextWrapper =  ContextBuilder.namedSparkContext(namespace , replOutputDir )
-  ContextNode.cw = contextWrapper
+  //lazy val contextWrapper =  ContextBuilder.namedSparkContext(namespace , replOutputDir )
+  //ContextNode.cw = contextWrapper
 
   var intp : ScalaInterpreter = null
 
@@ -145,22 +145,25 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
     if(numRequest == 0)
       Map()
-    else
+    else {
+      val contextWrapper = ContextBuilder.wrapper
       Map(
-        "sparkUI" -> contextWrapper.context.uiWebUrl.getOrElse(null) ,
+        "sparkUI" -> contextWrapper.context.uiWebUrl.getOrElse(null),
         "applicationId" -> contextWrapper.context.applicationId
       )
+    }
   }
 
-  log.info(s"outputDir = ${contextWrapper.sparkConf.get("spark.repl.class.outputDir")}")
+  //log.info(s"outputDir = ${contextWrapper.sparkConf.get("spark.repl.class.outputDir")}")
   override def receive: Receive = {
-    case ScalaScript(namespace , script) => {
+    case ScalaScript(namespace , script , sparkConf) => {
 
       var currentRequest = numRequest
       numRequest = numRequest+1
 
+      val context = ContextBuilder.namedSparkContext(namespace , replOutputDir , sparkConf)
       if(intp == null)
-        intp = new ScalaInterpreter(namespace, contextWrapper.sparkConf , cl)
+        intp = new ScalaInterpreter(namespace, context.sparkConf , cl , context.getJars())
 
       val b = new java.io.ByteArrayOutputStream()
 
@@ -196,7 +199,8 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
       //log.info(s"WebUrl = ${contextWrapper.context.uiWebUrl}")
       val originalSender = sender
 
-      lazy val runner = Runner(jobRequest, contextWrapper, cl)
+      val context = ContextBuilder.namedSparkContext(namespace , replOutputDir , jobRequest.sparkConf)
+      lazy val runner = Runner(jobRequest, context, cl)
 
       val future: Future[Either[Map[String, Any], String]] = Future {
         if(MistConfig.Contexts.timeout(jobRequest.namespace).isFinite())
@@ -266,5 +270,5 @@ class ContextNode(namespace: String) extends Actor with ActorLogging{
 
 object ContextNode {
   def props(namespace: String): Props = Props(classOf[ContextNode], namespace)
-  var cw : ContextWrapper = null
+  //var cw : ContextWrapper = null
 }

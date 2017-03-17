@@ -40,7 +40,7 @@ private[mist] trait ContextWrapper {
   def sparkConf: SparkConf
 
   def addJar(jarPath: String): Unit = {
-    val jarAbsolutePath = new File(jarPath).getAbsolutePath
+    val jarAbsolutePath = if(jarPath.startsWith("hdfs://")) jarPath else new File(jarPath).getAbsolutePath
     if (!jars.contains(jarAbsolutePath)) {
       context.addJar(jarPath)
       jars += jarAbsolutePath
@@ -49,5 +49,12 @@ private[mist] trait ContextWrapper {
 
   def stop(): Unit = {
     context.stop()
+  }
+
+  def getJars() : Option[Seq[String]] = {
+    if( jars.size == 0)
+      None
+    else
+      Some(jars.toSeq)
   }
 }
